@@ -70,9 +70,19 @@ class GtkCandidateWindowHandler : public CandidateWindowHandlerInterface {
   std::unique_ptr<commands::Output> last_update_output_;
 
  private:
+  // The raw callback function to the "changed" signal to GSettings object.
+  static void GSettingsChangedHandler(GSettings *settings,
+                                      const gchar *key,
+                                      gpointer user_data);
+  // The callback function to the "changed" signal to GSettings object.
+  void OnGSettingsChanged(const gchar *key);
+
   string GetFontDescription() const;
   string custom_font_description_;
   bool use_custom_font_description_;
+  GSettings *settings_;
+  gulong settings_observer_id_;
+
   DISALLOW_COPY_AND_ASSIGN(GtkCandidateWindowHandler);
 };
 

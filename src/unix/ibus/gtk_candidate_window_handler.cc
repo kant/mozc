@@ -29,6 +29,7 @@
 
 #include "unix/ibus/gtk_candidate_window_handler.h"
 
+#include <gio/gio.h>
 #include <unistd.h>
 
 #include "base/logging.h"
@@ -40,17 +41,55 @@ namespace mozc {
 namespace ibus {
 
 namespace {
+
 const char kDefaultFont[] = "SansSerif 11";
+const gchar kIBusPanelScheme[] = "org.freedesktop.ibus.panel";
+const gchar kIBusPanelUseCustomFont[] = "use-custom-font";
+const gchar kIBusPanelCustomFont[] = "custom-font";
+
+bool GetString(GVariant *value, string *out_string) {
+  if (g_variant_classify(value) != G_VARIANT_CLASS_STRING) {
+    return false;
+  }
+  *out_string = static_cast<const char *>(g_variant_get_string(value, NULL));
+  return true;
+}
+
+bool GetBoolean(GVariant *value, bool *out_boolean) {
+  if (g_variant_classify(value) != G_VARIANT_CLASS_BOOLEAN) {
+    return false;
+  }
+  *out_boolean = (g_variant_get_boolean(value) != FALSE);
+  return true;
+}
+
 }  // namespace
 
 GtkCandidateWindowHandler::GtkCandidateWindowHandler(
     renderer::RendererInterface *renderer)
     : renderer_(renderer),
       last_update_output_(new commands::Output()),
-      use_custom_font_description_(false) {
+      use_custom_font_description_(false),
+      settings_(g_settings_new(kIBusPanelScheme)),
+      settings_observer_id_(0) {
+  if (settings_ != nullptr) {
+    settings_observer_id_ = g_signal_connect(
+        settings_,
+        "changed",
+        G_CALLBACK(GSettingsChangedHandler),
+        reinterpret_cast<gpointer>(this));
+    OnGSettingsChanged(kIBusPanelUseCustomFont);
+    OnGSettingsChanged(kIBusPanelCustomFont);
+  }
 }
 
 GtkCandidateWindowHandler::~GtkCandidateWindowHandler() {
+  if (settings_ != nullptr) {
+    if (settings_observer_id_ != 0) {
+      g_signal_handler_disconnect(settings_, settings_observer_id_);
+    }
+    g_object_unref(settings_);
+  }
 }
 
 bool GtkCandidateWindowHandler::SendUpdateCommand(
@@ -120,6 +159,36 @@ void GtkCandidateWindowHandler::OnIBusCustomFontDescriptionChanged(
 void GtkCandidateWindowHandler::OnIBusUseCustomFontDescriptionChanged(
     bool use_custom_font_description) {
   use_custom_font_description_ = use_custom_font_description;
+}
+
+// static
+void GtkCandidateWindowHandler::GSettingsChangedHandler(GSettings *settings,
+                                                        const gchar *key,
+                                                        gpointer user_data) {
+  reinterpret_cast<GtkCandidateWindowHandler *>(user_data)
+      ->OnGSettingsChanged(key);
+}
+
+void GtkCandidateWindowHandler::OnGSettingsChanged(const gchar *key) {
+  if (g_strcmp0(key, kIBusPanelUseCustomFont) == 0) {
+    GVariant *use_custom_font_value =
+        g_settings_get_value(settings_, kIBusPanelUseCustomFont);
+    bool use_custom_font = false;
+    if (GetBoolean(use_custom_font_value, &use_custom_font)) {
+      OnIBusUseCustomFontDescriptionChanged(use_custom_font);
+    } else {
+      LOG(ERROR) << "Cannot get panel:use_custom_font configuration.";
+    }
+  } else if (g_strcmp0(key, kIBusPanelCustomFont) == 0) {
+    GVariant *custom_font_value = g_settings_get_value(settings_,
+                                                       kIBusPanelCustomFont);
+    string font_description;
+    if (GetString(custom_font_value, &font_description)) {
+      OnIBusCustomFontDescriptionChanged(font_description);
+    } else {
+      LOG(ERROR) << "Cannot get panel:custom_font configuration.";
+    }
+  }
 }
 
 string GtkCandidateWindowHandler::GetFontDescription() const {
