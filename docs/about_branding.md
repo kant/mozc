@@ -21,5 +21,5 @@ About Branding
 | Quality Assurance | New releases are tested by Google before sending to users       | Basically the same to Stable but some additional QA tests are skipped before sending to users | No official QA by Google |
 | Crash Reporting | Chrome OS: Integrated into the OS settings Other platforms: No by default. You can turn it on | Yes                                           | No   |
 | User Metrics Reporting | Chrome OS: No  Other platforms: No by default. You can turn it on    | Yes                                                             | No   |
-| Google Update | Android : No Other platforms: Yes                                   | Yes                                                                       | No   |
+| Google Update | Android: No Other platforms: Yes                                   | Yes                                                                       | No   |
 | Other Online Features | Not supported yet                                           | Cloud Handwriting                                                         | Nothing |
